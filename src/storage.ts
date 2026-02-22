@@ -1,10 +1,11 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
-import { homedir } from 'os';
+import { getRepoRoot } from './git.js';
 import type { Task } from './types.js';
 
-export function getDefaultStoragePath(): string {
-  return join(homedir(), '.task-tracker', 'tasks.jsonl');
+export function getStoragePath(): string {
+  const root = getRepoRoot();
+  return join(root, '.tasks.jsonl');
 }
 
 export function ensureStorageDir(storagePath: string): void {

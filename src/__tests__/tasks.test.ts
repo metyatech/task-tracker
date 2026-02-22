@@ -9,7 +9,7 @@ describe('tasks', () => {
   let storagePath: string;
 
   beforeEach(() => {
-    tmpDir = join(tmpdir(), `task-tracker-test-${Date.now()}`);
+    tmpDir = join(tmpdir(), `tt-tasks-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(tmpDir, { recursive: true });
     storagePath = join(tmpDir, 'tasks.jsonl');
   });
@@ -26,9 +26,8 @@ describe('tasks', () => {
     expect(task.createdAt).toBeTruthy();
   });
 
-  it('creates a task with options', () => {
-    const task = createTask(storagePath, 'Deploy', { repo: 'myapp', stage: 'in-progress' });
-    expect(task.repo).toBe('myapp');
+  it('creates a task with stage option', () => {
+    const task = createTask(storagePath, 'Deploy', { stage: 'in-progress' });
     expect(task.stage).toBe('in-progress');
   });
 
@@ -47,14 +46,6 @@ describe('tasks', () => {
     updateTask(storagePath, t2.id, { stage: 'done' });
     const all = listTasks(storagePath, { all: true });
     expect(all).toHaveLength(2);
-  });
-
-  it('filters by repo', () => {
-    createTask(storagePath, 'Repo A task', { repo: 'repoA' });
-    createTask(storagePath, 'Repo B task', { repo: 'repoB' });
-    const filtered = listTasks(storagePath, { repo: 'repoA' });
-    expect(filtered).toHaveLength(1);
-    expect(filtered[0].repo).toBe('repoA');
   });
 
   it('updates a task stage', () => {

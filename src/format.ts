@@ -22,10 +22,9 @@ export function stageColor(stage: string): string {
 }
 
 export function formatTask(task: Task): string {
-  const repo = task.repo ? chalk.dim(` [${task.repo}]`) : '';
   const stage = stageColor(task.stage);
   const id = chalk.bold(task.id);
-  return `${id}  ${stage}${repo}  ${task.description}`;
+  return `${id}  ${stage}  ${task.description}`;
 }
 
 export function formatTaskTable(tasks: Task[]): string {
@@ -35,7 +34,7 @@ export function formatTaskTable(tasks: Task[]): string {
   return tasks.map(formatTask).join('\n');
 }
 
-export function formatCheckReport(activeTasks: Task[], repoStatuses: GitRepoStatus[]): string {
+export function formatCheckReport(activeTasks: Task[], repoStatus: GitRepoStatus): string {
   const lines: string[] = [];
 
   lines.push(chalk.bold('=== Task Tracker Check ==='));
@@ -51,30 +50,25 @@ export function formatCheckReport(activeTasks: Task[], repoStatuses: GitRepoStat
   }
   lines.push('');
 
-  const dirty = repoStatuses.filter((r) => r.dirty || r.unpushed || r.error);
-  lines.push(chalk.bold(`Workspace Git Status (${repoStatuses.length} repos scanned):`));
-  if (dirty.length === 0) {
-    lines.push(chalk.green('  All repos clean.'));
+  lines.push(chalk.bold(`Git Status (${repoStatus.name}):`));
+  if (repoStatus.error) {
+    lines.push(chalk.red(`  Error: ${repoStatus.error}`));
+  } else if (!repoStatus.dirty && !repoStatus.unpushed) {
+    lines.push(chalk.green('  Clean.'));
   } else {
-    for (const r of dirty) {
-      lines.push(chalk.yellow(`  ${r.name} (${r.path}):`));
-      if (r.error) {
-        lines.push(chalk.red(`    Error: ${r.error}`));
+    if (repoStatus.dirty) {
+      lines.push(chalk.red(`  Uncommitted changes (${repoStatus.dirtyFiles.length} files):`));
+      for (const f of repoStatus.dirtyFiles.slice(0, 5)) {
+        lines.push(chalk.dim(`    ${f}`));
       }
-      if (r.dirty) {
-        lines.push(chalk.red(`    Uncommitted changes (${r.dirtyFiles.length} files)`));
-        for (const f of r.dirtyFiles.slice(0, 5)) {
-          lines.push(chalk.dim(`      ${f}`));
-        }
-        if (r.dirtyFiles.length > 5) {
-          lines.push(chalk.dim(`      ... and ${r.dirtyFiles.length - 5} more`));
-        }
+      if (repoStatus.dirtyFiles.length > 5) {
+        lines.push(chalk.dim(`    ... and ${repoStatus.dirtyFiles.length - 5} more`));
       }
-      if (r.unpushed) {
-        lines.push(chalk.blue(`    Unpushed commits (${r.unpushedCommits.length}):`));
-        for (const c of r.unpushedCommits.slice(0, 5)) {
-          lines.push(chalk.dim(`      ${c}`));
-        }
+    }
+    if (repoStatus.unpushed) {
+      lines.push(chalk.blue(`  Unpushed commits (${repoStatus.unpushedCommits.length}):`));
+      for (const c of repoStatus.unpushedCommits.slice(0, 5)) {
+        lines.push(chalk.dim(`    ${c}`));
       }
     }
   }

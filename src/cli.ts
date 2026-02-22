@@ -2,9 +2,9 @@ import { Command } from 'commander';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
-import { getDefaultStoragePath, ensureStorageDir } from './storage.js';
+import { getStoragePath } from './storage.js';
 import { createTask, listTasks, updateTask, removeTask } from './tasks.js';
-import { scanWorkspace } from './git.js';
+import { getRepoStatus } from './git.js';
 import { formatTask, formatTaskTable, formatCheckReport } from './format.js';
 import { STAGES } from './types.js';
 import type { Stage } from './types.js';
@@ -27,45 +27,34 @@ function isValidStage(s: string): s is Stage {
   return (STAGES as string[]).includes(s);
 }
 
+function getStorage(): string {
+  try {
+    return getStoragePath();
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : 'Not in a git repository');
+    process.exit(1);
+  }
+}
+
 const program = new Command();
 
 program
   .name('task-tracker')
   .description('Persistent task lifecycle tracker for AI agent sessions')
-  .version(version, '-V, --version')
-  .option('--storage <path>', 'Override storage location');
-
-function getStorage(): string {
-  const opts = program.opts<{ storage?: string }>();
-  return opts.storage ?? getDefaultStoragePath();
-}
-
-// init
-program
-  .command('init')
-  .description('Initialize storage directory')
-  .action(() => {
-    const storage = getStorage();
-    ensureStorageDir(storage);
-    console.log(`Storage initialized at: ${storage}`);
-  });
+  .version(version, '-V, --version');
 
 // add
 program
   .command('add <description>')
   .description('Add a new task')
-  .option('--repo <name>', 'Associate with a repository')
   .option('--stage <stage>', 'Initial stage', 'pending')
   .option('--json', 'Output created task as JSON')
-  .action((description: string, opts: { repo?: string; stage: string; json?: boolean }) => {
+  .action((description: string, opts: { stage: string; json?: boolean }) => {
     if (!isValidStage(opts.stage)) {
       console.error(`Invalid stage: ${opts.stage}\nValid stages: ${STAGES.join(', ')}`);
       process.exit(1);
     }
-    const task = createTask(getStorage(), description, {
-      repo: opts.repo,
-      stage: opts.stage as Stage,
-    });
+    const task = createTask(getStorage(), description, { stage: opts.stage as Stage });
     if (opts.json) {
       console.log(JSON.stringify(task, null, 2));
     } else {
@@ -78,16 +67,15 @@ program
   .command('list')
   .description('List tasks')
   .option('--all', 'Include completed/done tasks')
-  .option('--repo <name>', 'Filter by repository')
   .option('--stage <stage>', 'Filter by stage')
   .option('--json', 'JSON output')
-  .action((opts: { all?: boolean; repo?: string; stage?: string; json?: boolean }) => {
+  .action((opts: { all?: boolean; stage?: string; json?: boolean }) => {
     const stage = opts.stage && isValidStage(opts.stage) ? (opts.stage as Stage) : undefined;
     if (opts.stage && !stage) {
       console.error(`Invalid stage: ${opts.stage}\nValid stages: ${STAGES.join(', ')}`);
       process.exit(1);
     }
-    const tasks = listTasks(getStorage(), { all: opts.all, repo: opts.repo, stage });
+    const tasks = listTasks(getStorage(), { all: opts.all, stage });
     if (opts.json) {
       console.log(JSON.stringify(tasks, null, 2));
     } else {
@@ -101,30 +89,26 @@ program
   .description('Update a task')
   .option('--stage <stage>', 'Set lifecycle stage')
   .option('--description <text>', 'Update description')
-  .option('--repo <name>', 'Update repo association')
   .option('--json', 'JSON output')
-  .action(
-    (id: string, opts: { stage?: string; description?: string; repo?: string; json?: boolean }) => {
-      if (opts.stage && !isValidStage(opts.stage)) {
-        console.error(`Invalid stage: ${opts.stage}\nValid stages: ${STAGES.join(', ')}`);
-        process.exit(1);
-      }
-      const updates: { stage?: Stage; description?: string; repo?: string } = {};
-      if (opts.stage) updates.stage = opts.stage as Stage;
-      if (opts.description) updates.description = opts.description;
-      if (opts.repo) updates.repo = opts.repo;
-      const task = updateTask(getStorage(), id, updates);
-      if (!task) {
-        console.error(`Task not found: ${id}`);
-        process.exit(1);
-      }
-      if (opts.json) {
-        console.log(JSON.stringify(task, null, 2));
-      } else {
-        console.log('Updated: ' + formatTask(task));
-      }
-    },
-  );
+  .action((id: string, opts: { stage?: string; description?: string; json?: boolean }) => {
+    if (opts.stage && !isValidStage(opts.stage)) {
+      console.error(`Invalid stage: ${opts.stage}\nValid stages: ${STAGES.join(', ')}`);
+      process.exit(1);
+    }
+    const updates: { stage?: Stage; description?: string } = {};
+    if (opts.stage) updates.stage = opts.stage as Stage;
+    if (opts.description) updates.description = opts.description;
+    const task = updateTask(getStorage(), id, updates);
+    if (!task) {
+      console.error(`Task not found: ${id}`);
+      process.exit(1);
+    }
+    if (opts.json) {
+      console.log(JSON.stringify(task, null, 2));
+    } else {
+      console.log('Updated: ' + formatTask(task));
+    }
+  });
 
 // done
 program
@@ -155,16 +139,17 @@ program
 // check
 program
   .command('check')
-  .description('Comprehensive stale work check')
-  .option('--workspace <dir>', 'Workspace directory to scan', process.cwd())
+  .description('Show active tasks and git status for this repo')
   .option('--json', 'JSON output')
-  .action((opts: { workspace: string; json?: boolean }) => {
-    const activeTasks = listTasks(getStorage(), { all: false });
-    const repoStatuses = scanWorkspace(opts.workspace);
+  .action((opts: { json?: boolean }) => {
+    const storage = getStorage();
+    const repoRoot = dirname(storage);
+    const activeTasks = listTasks(storage, { all: false });
+    const repoStatus = getRepoStatus(repoRoot);
     if (opts.json) {
-      console.log(JSON.stringify({ activeTasks, repoStatuses }, null, 2));
+      console.log(JSON.stringify({ activeTasks, repoStatus }, null, 2));
     } else {
-      console.log(formatCheckReport(activeTasks, repoStatuses));
+      console.log(formatCheckReport(activeTasks, repoStatus));
     }
   });
 

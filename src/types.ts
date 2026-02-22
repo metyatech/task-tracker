@@ -14,7 +14,6 @@ export type Stage =
 export interface Task {
   id: string;
   description: string;
-  repo?: string;
   stage: Stage;
   createdAt: string;
   updatedAt: string;

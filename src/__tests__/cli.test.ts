@@ -10,9 +10,32 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const CLI = join(__dirname, '..', '..', 'dist', 'cli.js');
 
-function runCli(args: string[], storage: string): { stdout: string; stderr: string; code: number } {
-  const result = spawnSync('node', [CLI, '--storage', storage, ...args], {
+const GIT_ENV = {
+  ...process.env,
+  GIT_AUTHOR_NAME: 'Test',
+  GIT_AUTHOR_EMAIL: 'test@test.com',
+  GIT_COMMITTER_NAME: 'Test',
+  GIT_COMMITTER_EMAIL: 'test@test.com',
+};
+
+function initGitRepo(dir: string): void {
+  mkdirSync(dir, { recursive: true });
+  spawnSync('git', ['init'], { cwd: dir, encoding: 'utf-8', env: GIT_ENV });
+  spawnSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, env: GIT_ENV });
+  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: dir, env: GIT_ENV });
+  writeFileSync(join(dir, '.gitkeep'), '');
+  spawnSync('git', ['add', '.'], { cwd: dir, encoding: 'utf-8', env: GIT_ENV });
+  spawnSync('git', ['commit', '-m', 'init', '--no-gpg-sign'], {
+    cwd: dir,
     encoding: 'utf-8',
+    env: GIT_ENV,
+  });
+}
+
+function runCli(args: string[], cwd: string): { stdout: string; stderr: string; code: number } {
+  const result = spawnSync('node', [CLI, ...args], {
+    encoding: 'utf-8',
+    cwd,
     env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' },
   });
   return {
@@ -24,12 +47,12 @@ function runCli(args: string[], storage: string): { stdout: string; stderr: stri
 
 describe('CLI integration', () => {
   let tmpDir: string;
-  let storagePath: string;
+  let repoDir: string;
 
   beforeEach(() => {
     tmpDir = join(tmpdir(), `task-tracker-cli-test-${Date.now()}`);
-    mkdirSync(tmpDir, { recursive: true });
-    storagePath = join(tmpDir, 'tasks.jsonl');
+    repoDir = join(tmpDir, 'repo');
+    initGitRepo(repoDir);
   });
 
   afterEach(() => {
@@ -37,29 +60,29 @@ describe('CLI integration', () => {
   });
 
   it('shows version', () => {
-    const r = spawnSync('node', [CLI, '--version'], { encoding: 'utf-8' });
+    const r = spawnSync('node', [CLI, '--version'], { encoding: 'utf-8', cwd: repoDir });
     expect(r.stdout.trim()).toMatch(/\d+\.\d+\.\d+/);
     expect(r.status).toBe(0);
   });
 
   it('shows help', () => {
-    const r = spawnSync('node', [CLI, '--help'], { encoding: 'utf-8' });
+    const r = spawnSync('node', [CLI, '--help'], { encoding: 'utf-8', cwd: repoDir });
     expect(r.stdout).toContain('task-tracker');
     expect(r.status).toBe(0);
   });
 
   it('add and list task', () => {
-    const add = runCli(['add', 'My first task'], storagePath);
+    const add = runCli(['add', 'My first task'], repoDir);
     expect(add.code).toBe(0);
     expect(add.stdout).toContain('Created');
 
-    const list = runCli(['list'], storagePath);
+    const list = runCli(['list'], repoDir);
     expect(list.code).toBe(0);
     expect(list.stdout).toContain('My first task');
   });
 
   it('add with --json output', () => {
-    const add = runCli(['add', 'JSON task', '--json'], storagePath);
+    const add = runCli(['add', 'JSON task', '--json'], repoDir);
     expect(add.code).toBe(0);
     const parsed = JSON.parse(add.stdout) as { description: string; stage: string; id: string };
     expect(parsed.description).toBe('JSON task');
@@ -68,75 +91,56 @@ describe('CLI integration', () => {
   });
 
   it('update task stage', () => {
-    const add = runCli(['add', 'Updateable', '--json'], storagePath);
+    const add = runCli(['add', 'Updateable', '--json'], repoDir);
     const task = JSON.parse(add.stdout) as { id: string };
 
-    const update = runCli(['update', task.id, '--stage', 'in-progress', '--json'], storagePath);
+    const update = runCli(['update', task.id, '--stage', 'in-progress', '--json'], repoDir);
     expect(update.code).toBe(0);
     const updated = JSON.parse(update.stdout) as { stage: string };
     expect(updated.stage).toBe('in-progress');
   });
 
   it('done command marks task as done', () => {
-    const add = runCli(['add', 'Finish me', '--json'], storagePath);
+    const add = runCli(['add', 'Finish me', '--json'], repoDir);
     const task = JSON.parse(add.stdout) as { id: string };
 
-    const done = runCli(['done', task.id], storagePath);
+    const done = runCli(['done', task.id], repoDir);
     expect(done.code).toBe(0);
 
-    const list = runCli(['list'], storagePath);
+    const list = runCli(['list'], repoDir);
     expect(list.stdout).not.toContain('Finish me');
 
-    const listAll = runCli(['list', '--all'], storagePath);
+    const listAll = runCli(['list', '--all'], repoDir);
     expect(listAll.stdout).toContain('Finish me');
   });
 
   it('remove task', () => {
-    const add = runCli(['add', 'Remove me', '--json'], storagePath);
+    const add = runCli(['add', 'Remove me', '--json'], repoDir);
     const task = JSON.parse(add.stdout) as { id: string };
 
-    const remove = runCli(['remove', task.id], storagePath);
+    const remove = runCli(['remove', task.id], repoDir);
     expect(remove.code).toBe(0);
 
-    const list = runCli(['list', '--all'], storagePath);
+    const list = runCli(['list', '--all'], repoDir);
     expect(list.stdout).not.toContain('Remove me');
   });
 
-  it('check command with temp git repo', () => {
-    const repoDir = join(tmpDir, 'myrepo');
-    mkdirSync(repoDir, { recursive: true });
-    const gitEnv = {
-      ...process.env,
-      GIT_AUTHOR_NAME: 'Test',
-      GIT_AUTHOR_EMAIL: 'test@test.com',
-      GIT_COMMITTER_NAME: 'Test',
-      GIT_COMMITTER_EMAIL: 'test@test.com',
-    };
-    spawnSync('git', ['init'], { cwd: repoDir, encoding: 'utf-8', env: gitEnv });
-    spawnSync('git', ['config', 'user.email', 'test@test.com'], { cwd: repoDir, env: gitEnv });
-    spawnSync('git', ['config', 'user.name', 'Test'], { cwd: repoDir, env: gitEnv });
-    writeFileSync(join(repoDir, 'test.txt'), 'hello');
-    spawnSync('git', ['add', '.'], { cwd: repoDir, encoding: 'utf-8', env: gitEnv });
-    spawnSync('git', ['commit', '-m', 'init', '--no-gpg-sign'], {
-      cwd: repoDir,
-      encoding: 'utf-8',
-      env: gitEnv,
-    });
+  it('check command shows repo status', () => {
     writeFileSync(join(repoDir, 'dirty.txt'), 'dirty');
 
-    const check = runCli(['check', '--workspace', tmpDir], storagePath);
+    const check = runCli(['check'], repoDir);
     expect(check.code).toBe(0);
-    expect(check.stdout).toContain('myrepo');
+    expect(check.stdout).toContain('Git Status');
   });
 
   it('check command with --json', () => {
-    const check = runCli(['check', '--workspace', tmpDir, '--json'], storagePath);
+    const check = runCli(['check', '--json'], repoDir);
     expect(check.code).toBe(0);
     const parsed = JSON.parse(check.stdout) as {
       activeTasks: unknown[];
-      repoStatuses: unknown[];
+      repoStatus: unknown;
     };
     expect(parsed).toHaveProperty('activeTasks');
-    expect(parsed).toHaveProperty('repoStatuses');
+    expect(parsed).toHaveProperty('repoStatus');
   });
 });

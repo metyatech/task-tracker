@@ -6,7 +6,7 @@ import { DONE_STAGES } from './types.js';
 export function createTask(
   storagePath: string,
   description: string,
-  options: { repo?: string; stage?: Stage } = {},
+  options: { stage?: Stage } = {},
 ): Task {
   const now = new Date().toISOString();
   const task: Task = {
@@ -16,21 +16,17 @@ export function createTask(
     createdAt: now,
     updatedAt: now,
   };
-  if (options.repo) task.repo = options.repo;
   addTaskToStorage(storagePath, task);
   return task;
 }
 
 export function listTasks(
   storagePath: string,
-  options: { all?: boolean; repo?: string; stage?: Stage } = {},
+  options: { all?: boolean; stage?: Stage } = {},
 ): Task[] {
   let tasks = readTasks(storagePath);
   if (!options.all) {
     tasks = tasks.filter((t) => !DONE_STAGES.includes(t.stage));
-  }
-  if (options.repo) {
-    tasks = tasks.filter((t) => t.repo === options.repo);
   }
   if (options.stage) {
     tasks = tasks.filter((t) => t.stage === options.stage);
@@ -41,7 +37,7 @@ export function listTasks(
 export function updateTask(
   storagePath: string,
   id: string,
-  updates: { stage?: Stage; description?: string; repo?: string },
+  updates: { stage?: Stage; description?: string },
 ): Task | null {
   const tasks = readTasks(storagePath);
   const idx = tasks.findIndex((t) => t.id === id);
@@ -49,7 +45,6 @@ export function updateTask(
   const task = tasks[idx];
   if (updates.stage !== undefined) task.stage = updates.stage;
   if (updates.description !== undefined) task.description = updates.description;
-  if (updates.repo !== undefined) task.repo = updates.repo;
   task.updatedAt = new Date().toISOString();
   writeTasks(storagePath, tasks);
   return task;

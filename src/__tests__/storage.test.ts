@@ -21,7 +21,7 @@ describe('storage', () => {
   let storagePath: string;
 
   beforeEach(() => {
-    tmpDir = join(tmpdir(), `task-tracker-test-${Date.now()}`);
+    tmpDir = join(tmpdir(), `tt-storage-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(tmpDir, { recursive: true });
     storagePath = join(tmpDir, 'tasks.jsonl');
   });

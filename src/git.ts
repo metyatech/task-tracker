@@ -1,6 +1,4 @@
 import { execSync } from 'child_process';
-import { readdirSync, statSync, existsSync } from 'fs';
-import { join } from 'path';
 
 export interface GitRepoStatus {
   path: string;
@@ -17,6 +15,17 @@ function tryExec(cmd: string, cwd: string): string | null {
     return execSync(cmd, { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
   } catch {
     return null;
+  }
+}
+
+export function getRepoRoot(): string {
+  try {
+    return execSync('git rev-parse --show-toplevel', {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+  } catch {
+    throw new Error('Not in a git repository. task-tracker requires a git repository.');
   }
 }
 
@@ -48,33 +57,4 @@ export function getRepoStatus(repoPath: string): GitRepoStatus {
   }
 
   return status;
-}
-
-export function scanWorkspace(workspaceDir: string): GitRepoStatus[] {
-  const results: GitRepoStatus[] = [];
-
-  if (existsSync(join(workspaceDir, '.git'))) {
-    results.push(getRepoStatus(workspaceDir));
-  }
-
-  try {
-    const entries = readdirSync(workspaceDir);
-    for (const entry of entries) {
-      const fullPath = join(workspaceDir, entry);
-      try {
-        const st = statSync(fullPath);
-        if (st.isDirectory() && existsSync(join(fullPath, '.git'))) {
-          if (fullPath !== workspaceDir) {
-            results.push(getRepoStatus(fullPath));
-          }
-        }
-      } catch {
-        // skip inaccessible entries
-      }
-    }
-  } catch {
-    // skip
-  }
-
-  return results;
 }
