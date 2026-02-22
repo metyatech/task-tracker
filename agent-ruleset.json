@@ -1,0 +1,20 @@
+{
+  "source": "github:metyatech/agent-rules@HEAD",
+  "rules": [
+    "global/agent-rules-composition.md",
+    "global/autonomous-operations.md",
+    "global/cli-standards.md",
+    "global/command-execution.md",
+    "global/delivery-hard-gates.md",
+    "global/implementation-and-coding-standards.md",
+    "global/linting-formatting-and-static-analysis.md",
+    "global/multi-agent-delegation.md",
+    "global/planning-and-approval-gate.md",
+    "global/post-change-deployment.md",
+    "global/quality-testing-and-errors.md",
+    "global/release-and-publication.md",
+    "global/skill-authoring.md",
+    "global/user-identity-and-accounts.md",
+    "global/writing-and-documentation.md"
+  ]
+}
