@@ -1,6 +1,6 @@
 {
   "name": "@metyatech/task-tracker",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Persistent task lifecycle tracker for AI agent sessions",
   "type": "module",
   "bin": {

@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [0.2.1] - 2026-02-23
 
-- AGENTS.md compliance improvements
-- Community health files (SECURITY, CONTRIBUTING, CODE_OF_CONDUCT, CHANGELOG)
-- Issue and Pull Request templates
-- Security scanning to CI (OSV-scanner, CodeQL)
+### Changed
+
+- Migrated to ESLint 9 flat config (`eslint.config.js`)
+- Updated CI with security scanning (OSV-scanner v2.3.3, CodeQL)
+- Added community health files (SECURITY.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md)
+- Added GitHub Issue and Pull Request templates
+- Added AGENTS.md and agent-ruleset.json for compose-agentsmd compliance
