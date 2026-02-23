@@ -3,11 +3,12 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
 import { getStoragePath } from './storage.js';
-import { createTask, listTasks, updateTask, removeTask } from './tasks.js';
+import { createTask, listTasks, updateTask, removeTask, purgeTasks } from './tasks.js';
 import { getRepoStatus } from './git.js';
 import { formatTask, formatTaskTable, formatCheckReport } from './format.js';
 import { STAGES } from './types.js';
 import type { Stage } from './types.js';
+import { startGui } from './gui.js';
 import process from 'process';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -151,6 +152,43 @@ program
     } else {
       console.log(formatCheckReport(activeTasks, repoStatus));
     }
+  });
+
+// purge
+program
+  .command('purge')
+  .description('Remove all done tasks from storage')
+  .option('--dry-run', 'Show what would be removed without removing')
+  .option('--json', 'JSON output')
+  .action((opts: { dryRun?: boolean; json?: boolean }) => {
+    const result = purgeTasks(getStorage(), { dryRun: opts.dryRun });
+    const ids = result.purged.map((t) => t.id);
+    if (opts.json) {
+      console.log(JSON.stringify({ count: result.count, ids }));
+    } else if (opts.dryRun) {
+      if (result.count === 0) {
+        console.log('No done tasks to purge.');
+      } else {
+        console.log(`Would purge ${result.count} task(s): ${ids.join(', ')}`);
+      }
+    } else {
+      if (result.count === 0) {
+        console.log('No done tasks to purge.');
+      } else {
+        console.log(`Purged ${result.count} task(s): ${ids.join(', ')}`);
+      }
+    }
+  });
+
+// gui
+program
+  .command('gui [dir]')
+  .description('Start the web GUI (defaults to current directory)')
+  .option('--port <port>', 'Port to listen on', '3333')
+  .action((dir: string | undefined, opts: { port: string }) => {
+    const targetDir = dir ?? process.cwd();
+    const port = parseInt(opts.port, 10) || 3333;
+    startGui(targetDir, port);
   });
 
 program.parse(process.argv);

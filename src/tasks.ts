@@ -57,3 +57,16 @@ export function removeTask(storagePath: string, id: string): boolean {
   writeTasks(storagePath, filtered);
   return true;
 }
+
+export function purgeTasks(
+  storagePath: string,
+  options: { dryRun?: boolean } = {},
+): { purged: Task[]; count: number } {
+  const tasks = readTasks(storagePath);
+  const purged = tasks.filter((t) => DONE_STAGES.includes(t.stage));
+  if (!options.dryRun) {
+    const remaining = tasks.filter((t) => !DONE_STAGES.includes(t.stage));
+    writeTasks(storagePath, remaining);
+  }
+  return { purged, count: purged.length };
+}
