@@ -104,6 +104,13 @@ npm run format:check # Prettier (check)
 npm run verify       # format:check + lint + build + test
 ```
 
+## Community
+
+- [Security Policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Changelog](CHANGELOG.md)
+
 ## License
 
-MIT © metyatech
+MIT © [metyatech](https://github.com/metyatech)
