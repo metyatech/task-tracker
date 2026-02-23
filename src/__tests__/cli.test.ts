@@ -191,4 +191,52 @@ describe('CLI integration', () => {
     expect(purge.code).toBe(0);
     expect(purge.stdout).toContain('No done tasks to purge');
   });
+
+  it('done --keep N auto-purges keeping only N most recent done tasks', () => {
+    // Add 3 tasks directly as done (no auto-purge side effects)
+    runCli(['add', 'Old task 1', '--stage', 'done'], repoDir);
+    runCli(['add', 'Old task 2', '--stage', 'done'], repoDir);
+    runCli(['add', 'Old task 3', '--stage', 'done'], repoDir);
+    // Mark one more done with explicit --keep 2 → triggers auto-purge keeping 2
+    const add = runCli(['add', 'Final task', '--json'], repoDir);
+    const finalTask = JSON.parse(add.stdout) as { id: string };
+    const done = runCli(['done', finalTask.id, '--keep', '2'], repoDir);
+    expect(done.code).toBe(0);
+
+    const all = runCli(['list', '--all', '--json'], repoDir);
+    const parsed = JSON.parse(all.stdout) as unknown[];
+    expect(parsed).toHaveLength(2);
+  });
+
+  it('done --keep 0 disables auto-purge', () => {
+    // Add 3 tasks directly as done
+    runCli(['add', 'Old task 1', '--stage', 'done'], repoDir);
+    runCli(['add', 'Old task 2', '--stage', 'done'], repoDir);
+    runCli(['add', 'Old task 3', '--stage', 'done'], repoDir);
+    // Mark one more done with --keep 0 → auto-purge disabled
+    const add = runCli(['add', 'Task 4', '--json'], repoDir);
+    const t = JSON.parse(add.stdout) as { id: string };
+    const done = runCli(['done', t.id, '--keep', '0'], repoDir);
+    expect(done.code).toBe(0);
+
+    const all = runCli(['list', '--all', '--json'], repoDir);
+    const parsed = JSON.parse(all.stdout) as unknown[];
+    expect(parsed).toHaveLength(4);
+  });
+
+  it('purge --keep N keeps N most recent done tasks', () => {
+    // Add 4 tasks directly as done
+    runCli(['add', 'Old task 1', '--stage', 'done'], repoDir);
+    runCli(['add', 'Old task 2', '--stage', 'done'], repoDir);
+    runCli(['add', 'Old task 3', '--stage', 'done'], repoDir);
+    runCli(['add', 'Old task 4', '--stage', 'done'], repoDir);
+
+    const purge = runCli(['purge', '--keep', '2'], repoDir);
+    expect(purge.code).toBe(0);
+    expect(purge.stdout).toContain('Purged 2 task(s)');
+
+    const all = runCli(['list', '--all', '--json'], repoDir);
+    const parsed = JSON.parse(all.stdout) as unknown[];
+    expect(parsed).toHaveLength(2);
+  });
 });

@@ -60,13 +60,34 @@ export function removeTask(storagePath: string, id: string): boolean {
 
 export function purgeTasks(
   storagePath: string,
-  options: { dryRun?: boolean } = {},
+  options: { dryRun?: boolean; keep?: number } = {},
 ): { purged: Task[]; count: number } {
   const tasks = readTasks(storagePath);
-  const purged = tasks.filter((t) => DONE_STAGES.includes(t.stage));
-  if (!options.dryRun) {
-    const remaining = tasks.filter((t) => !DONE_STAGES.includes(t.stage));
+  const doneTasks = tasks.filter((t) => DONE_STAGES.includes(t.stage));
+
+  let toPurge: Task[];
+  if (options.keep !== undefined) {
+    const sorted = [...doneTasks].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    toPurge = sorted.slice(options.keep);
+  } else {
+    toPurge = doneTasks;
+  }
+
+  if (!options.dryRun && toPurge.length > 0) {
+    const purgeIds = new Set(toPurge.map((t) => t.id));
+    const remaining = tasks.filter((t) => !purgeIds.has(t.id));
     writeTasks(storagePath, remaining);
   }
-  return { purged, count: purged.length };
+  return { purged: toPurge, count: toPurge.length };
+}
+
+export function autoPurgeTasks(
+  storagePath: string,
+  options: { keep?: number } = {},
+): { purged: Task[]; count: number } {
+  const keep = options.keep ?? 20;
+  if (keep === 0) {
+    return { purged: [], count: 0 };
+  }
+  return purgeTasks(storagePath, { keep });
 }

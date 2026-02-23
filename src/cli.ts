@@ -3,7 +3,14 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
 import { getStoragePath } from './storage.js';
-import { createTask, listTasks, updateTask, removeTask, purgeTasks } from './tasks.js';
+import {
+  createTask,
+  listTasks,
+  updateTask,
+  removeTask,
+  purgeTasks,
+  autoPurgeTasks,
+} from './tasks.js';
 import { getRepoStatus } from './git.js';
 import { formatTask, formatTaskTable, formatCheckReport } from './format.js';
 import { STAGES } from './types.js';
@@ -115,13 +122,19 @@ program
 program
   .command('done <id>')
   .description('Mark task as done')
-  .action((id: string) => {
-    const task = updateTask(getStorage(), id, { stage: 'done' });
+  .option('--keep <n>', 'Auto-purge: keep N most recent done tasks (0=disabled)', '20')
+  .action((id: string, opts: { keep: string }) => {
+    const storage = getStorage();
+    const task = updateTask(storage, id, { stage: 'done' });
     if (!task) {
       console.error(`Task not found: ${id}`);
       process.exit(1);
     }
     console.log('Done: ' + formatTask(task));
+    const keep = parseInt(opts.keep, 10);
+    if (!isNaN(keep)) {
+      autoPurgeTasks(storage, { keep });
+    }
   });
 
 // remove
@@ -159,9 +172,11 @@ program
   .command('purge')
   .description('Remove all done tasks from storage')
   .option('--dry-run', 'Show what would be removed without removing')
+  .option('--keep <n>', 'Keep N most recent done tasks, purge the rest')
   .option('--json', 'JSON output')
-  .action((opts: { dryRun?: boolean; json?: boolean }) => {
-    const result = purgeTasks(getStorage(), { dryRun: opts.dryRun });
+  .action((opts: { dryRun?: boolean; keep?: string; json?: boolean }) => {
+    const keep = opts.keep !== undefined ? parseInt(opts.keep, 10) : undefined;
+    const result = purgeTasks(getStorage(), { dryRun: opts.dryRun, keep });
     const ids = result.purged.map((t) => t.id);
     if (opts.json) {
       console.log(JSON.stringify({ count: result.count, ids }));
