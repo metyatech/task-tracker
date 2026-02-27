@@ -25,7 +25,15 @@ export function readTasks(storagePath: string): Task[] {
   return content
     .split('\n')
     .filter((line) => line.trim())
-    .map((line) => JSON.parse(line) as Task);
+    .map((line) => {
+      try {
+        return JSON.parse(line) as Task;
+      } catch {
+        process.stderr.write(`[task-tracker] Warning: skipping malformed line in tasks file\n`);
+        return null;
+      }
+    })
+    .filter((task): task is Task => task !== null);
 }
 
 export function writeTasks(storagePath: string, tasks: Task[]): void {

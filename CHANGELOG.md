@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-02-23
+
+### Fixed
+
+- Normalize `repository.url` in package.json (npm pkg fix)
+
+## [0.2.2] - 2026-02-23
+
+### Fixed
+
+- Skip GUI auto-refresh when input is focused
+- Upgrade vitest to v4 and add minimatch override to resolve security vulnerabilities
+
+### Changed
+
+- Add husky + lint-staged pre-commit hooks
+- Regenerate AGENTS.md with latest global rules
+
 ## [0.2.1] - 2026-02-23
 
 ### Changed
