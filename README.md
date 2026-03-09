@@ -30,7 +30,9 @@ npm link
 
 Tasks are stored in `<git-repo-root>/.tasks.jsonl` (JSONL format, one JSON object per line). All commands must be run from within a git repository. The file is created automatically on first `add`.
 
-Each task: `{ id, description, stage, createdAt, updatedAt }`
+Each task: `{ id, description, stage, committedEventId?, createdAt, updatedAt }`
+
+`committedEventId` is a unique ID written when the task transitions to `committed`. It is used to locate the git commit that introduced the event into `.tasks.jsonl`, enabling accurate `pushed` detection even when `update --stage committed` is called before the actual commit.
 
 To sync tasks across PCs, commit `.tasks.jsonl` and push/pull like any other file.
 
@@ -56,9 +58,9 @@ task-tracker list --json
 ### Update a task
 
 ```bash
-task-tracker update <id> --stage implemented
+task-tracker update <id> --stage committed
 task-tracker update <id> --description "Updated description"
-task-tracker update <id> --stage verified --json
+task-tracker update <id> --stage released --json
 ```
 
 ### Mark done
@@ -89,9 +91,17 @@ The `check` command:
 
 ## Lifecycle Stages
 
-`pending` → `in-progress` → `implemented` → `verified` → `committed` → `pushed` → `pr-created` → `merged` → `released` → `published` → `done`
+Persisted stages: `pending` → `in-progress` → `committed` → `released` → `done`
 
-Stages can be set in any order.
+The `pushed` stage is **derived** and cannot be set manually. When a task is in `committed`
+stage, `list` and `check` display its effective stage as `pushed` automatically once the
+`.tasks.jsonl` commit that first introduced the task's `committedEventId` is reachable from
+the remote upstream branch (`git merge-base --is-ancestor`). This means derivation is
+accurate even when `update --stage committed` is called before the actual git commit.
+
+To filter by effective `pushed` stage: `task-tracker list --stage pushed`
+
+Setting `--stage pushed` on `add` or `update` is an error.
 
 ## Dev Commands
 

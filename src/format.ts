@@ -1,18 +1,13 @@
 import chalk from 'chalk';
-import type { Task } from './types.js';
+import type { Task, EffectiveStage } from './types.js';
 import type { GitRepoStatus } from './git.js';
 
 const STAGE_COLORS: Record<string, (s: string) => string> = {
   pending: (s) => chalk.gray(s),
   'in-progress': (s) => chalk.blue(s),
-  implemented: (s) => chalk.cyan(s),
-  verified: (s) => chalk.yellow(s),
   committed: (s) => chalk.magenta(s),
   pushed: (s) => chalk.green(s),
-  'pr-created': (s) => chalk.greenBright(s),
-  merged: (s) => chalk.green(s),
   released: (s) => chalk.blueBright(s),
-  published: (s) => chalk.greenBright(s),
   done: (s) => chalk.dim(s),
 };
 
@@ -21,20 +16,28 @@ export function stageColor(stage: string): string {
   return fn(stage);
 }
 
-export function formatTask(task: Task): string {
-  const stage = stageColor(task.stage);
+export function formatTask(task: Task, effectiveStage?: EffectiveStage): string {
+  const displayStage = effectiveStage ?? task.stage;
+  const stage = stageColor(displayStage);
   const id = chalk.bold(task.id);
   return `${id}  ${stage}  ${task.description}`;
 }
 
-export function formatTaskTable(tasks: Task[]): string {
+export function formatTaskTable(
+  tasks: Task[],
+  getEffectiveStage?: (t: Task) => EffectiveStage,
+): string {
   if (tasks.length === 0) {
     return chalk.dim('No tasks found.');
   }
-  return tasks.map(formatTask).join('\n');
+  return tasks.map((t) => formatTask(t, getEffectiveStage?.(t))).join('\n');
 }
 
-export function formatCheckReport(activeTasks: Task[], repoStatus: GitRepoStatus): string {
+export function formatCheckReport(
+  activeTasks: Task[],
+  repoStatus: GitRepoStatus,
+  getEffectiveStage?: (t: Task) => EffectiveStage,
+): string {
   const lines: string[] = [];
 
   lines.push(chalk.bold('=== Task Tracker Check ==='));
@@ -45,7 +48,7 @@ export function formatCheckReport(activeTasks: Task[], repoStatus: GitRepoStatus
     lines.push(chalk.dim('  No active tasks.'));
   } else {
     for (const t of activeTasks) {
-      lines.push('  ' + formatTask(t));
+      lines.push('  ' + formatTask(t, getEffectiveStage?.(t)));
     }
   }
   lines.push('');

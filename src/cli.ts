@@ -11,10 +11,10 @@ import {
   purgeTasks,
   autoPurgeTasks,
 } from './tasks.js';
-import { getRepoStatus } from './git.js';
+import { getRepoStatus, deriveEffectiveStage } from './git.js';
 import { formatTask, formatTaskTable, formatCheckReport } from './format.js';
 import { STAGES } from './types.js';
-import type { Stage } from './types.js';
+import type { Stage, Task, EffectiveStage } from './types.js';
 import { startGui } from './gui.js';
 import process from 'process';
 
@@ -33,6 +33,18 @@ try {
 
 function isValidStage(s: string): s is Stage {
   return (STAGES as string[]).includes(s);
+}
+
+function isDerivedStage(s: string): boolean {
+  return s === 'pushed';
+}
+
+function derivedStageError(stage: string): string {
+  return (
+    `\`${stage}\` is a derived stage and cannot be set manually.\n` +
+    `Set stage to \`committed\` instead; \`${stage}\` is derived automatically when the ` +
+    `commit containing \`committedEventId\` is reachable from the upstream branch.`
+  );
 }
 
 function getStorage(): string {
@@ -55,9 +67,17 @@ program
 program
   .command('add <description>')
   .description('Add a new task')
-  .option('--stage <stage>', 'Initial stage', 'pending')
+  .option(
+    '--stage <stage>',
+    `Initial stage (valid: ${STAGES.join(', ')}; \`pushed\` is derived, not settable)`,
+    'pending',
+  )
   .option('--json', 'Output created task as JSON')
   .action((description: string, opts: { stage: string; json?: boolean }) => {
+    if (isDerivedStage(opts.stage)) {
+      console.error(derivedStageError(opts.stage));
+      process.exit(1);
+    }
     if (!isValidStage(opts.stage)) {
       console.error(`Invalid stage: ${opts.stage}\nValid stages: ${STAGES.join(', ')}`);
       process.exit(1);
@@ -75,19 +95,50 @@ program
   .command('list')
   .description('List tasks')
   .option('--all', 'Include completed/done tasks')
-  .option('--stage <stage>', 'Filter by stage')
+  .option('--stage <stage>', `Filter by stage; use \`pushed\` to filter by derived effective stage`)
   .option('--json', 'JSON output')
   .action((opts: { all?: boolean; stage?: string; json?: boolean }) => {
-    const stage = opts.stage && isValidStage(opts.stage) ? (opts.stage as Stage) : undefined;
-    if (opts.stage && !stage) {
+    const storage = getStorage();
+    const repoRoot = dirname(storage);
+
+    // Special case: 'pushed' is a derived stage — filter committed tasks whose
+    // committedEventId is present in a commit reachable from upstream.
+    if (opts.stage === 'pushed') {
+      const committed = listTasks(storage, { all: opts.all, stage: 'committed' });
+      const tasks = committed.filter((t) => deriveEffectiveStage(t, repoRoot) === 'pushed');
+      if (opts.json) {
+        console.log(
+          JSON.stringify(
+            tasks.map((t) => ({ ...t, effectiveStage: 'pushed' as EffectiveStage })),
+            null,
+            2,
+          ),
+        );
+      } else {
+        console.log(formatTaskTable(tasks, () => 'pushed'));
+      }
+      return;
+    }
+
+    if (opts.stage && !isValidStage(opts.stage)) {
       console.error(`Invalid stage: ${opts.stage}\nValid stages: ${STAGES.join(', ')}`);
       process.exit(1);
     }
-    const tasks = listTasks(getStorage(), { all: opts.all, stage });
+
+    const stage = opts.stage ? (opts.stage as Stage) : undefined;
+    const tasks = listTasks(storage, { all: opts.all, stage });
+    const getEffective = (t: Task): EffectiveStage => deriveEffectiveStage(t, repoRoot);
+
     if (opts.json) {
-      console.log(JSON.stringify(tasks, null, 2));
+      console.log(
+        JSON.stringify(
+          tasks.map((t) => ({ ...t, effectiveStage: getEffective(t) })),
+          null,
+          2,
+        ),
+      );
     } else {
-      console.log(formatTaskTable(tasks));
+      console.log(formatTaskTable(tasks, getEffective));
     }
   });
 
@@ -95,18 +146,26 @@ program
 program
   .command('update <id>')
   .description('Update a task')
-  .option('--stage <stage>', 'Set lifecycle stage')
+  .option(
+    '--stage <stage>',
+    `Set lifecycle stage (valid: ${STAGES.join(', ')}; \`pushed\` is derived, not settable)`,
+  )
   .option('--description <text>', 'Update description')
   .option('--json', 'JSON output')
   .action((id: string, opts: { stage?: string; description?: string; json?: boolean }) => {
+    if (opts.stage && isDerivedStage(opts.stage)) {
+      console.error(derivedStageError(opts.stage));
+      process.exit(1);
+    }
     if (opts.stage && !isValidStage(opts.stage)) {
       console.error(`Invalid stage: ${opts.stage}\nValid stages: ${STAGES.join(', ')}`);
       process.exit(1);
     }
+    const storage = getStorage();
     const updates: { stage?: Stage; description?: string } = {};
     if (opts.stage) updates.stage = opts.stage as Stage;
     if (opts.description) updates.description = opts.description;
-    const task = updateTask(getStorage(), id, updates);
+    const task = updateTask(storage, id, updates);
     if (!task) {
       console.error(`Task not found: ${id}`);
       process.exit(1);
@@ -160,10 +219,20 @@ program
     const repoRoot = dirname(storage);
     const activeTasks = listTasks(storage, { all: false });
     const repoStatus = getRepoStatus(repoRoot);
+    const getEffective = (t: Task): EffectiveStage => deriveEffectiveStage(t, repoRoot);
     if (opts.json) {
-      console.log(JSON.stringify({ activeTasks, repoStatus }, null, 2));
+      console.log(
+        JSON.stringify(
+          {
+            activeTasks: activeTasks.map((t) => ({ ...t, effectiveStage: getEffective(t) })),
+            repoStatus,
+          },
+          null,
+          2,
+        ),
+      );
     } else {
-      console.log(formatCheckReport(activeTasks, repoStatus));
+      console.log(formatCheckReport(activeTasks, repoStatus, getEffective));
     }
   });
 

@@ -239,4 +239,162 @@ describe('CLI integration', () => {
     const parsed = JSON.parse(all.stdout) as unknown[];
     expect(parsed).toHaveLength(2);
   });
+
+  it('update --stage pushed fails with derived stage error', () => {
+    const add = runCli(['add', 'Push me', '--json'], repoDir);
+    const task = JSON.parse(add.stdout) as { id: string };
+
+    const update = runCli(['update', task.id, '--stage', 'pushed'], repoDir);
+    expect(update.code).not.toBe(0);
+    expect(update.stderr).toContain('pushed');
+    expect(update.stderr).toContain('derived');
+  });
+
+  it('add --stage pushed fails with derived stage error', () => {
+    const r = runCli(['add', 'Push task', '--stage', 'pushed'], repoDir);
+    expect(r.code).not.toBe(0);
+    expect(r.stderr).toContain('pushed');
+    expect(r.stderr).toContain('derived');
+  });
+
+  it('update --stage committed stores committedEventId (not committedCommit) in json output', () => {
+    const add = runCli(['add', 'Commit me', '--json'], repoDir);
+    const task = JSON.parse(add.stdout) as { id: string };
+
+    const update = runCli(['update', task.id, '--stage', 'committed', '--json'], repoDir);
+    expect(update.code).toBe(0);
+    const updated = JSON.parse(update.stdout) as { stage: string; committedEventId?: string };
+    expect(updated.stage).toBe('committed');
+    expect(updated.committedEventId).toMatch(/^[A-Za-z0-9_-]{16}$/);
+  });
+
+  it('pushed is derived from the git commit that introduced committedEventId into .tasks.jsonl', () => {
+    const add = runCli(['add', 'Push via history', '--json'], repoDir);
+    const task = JSON.parse(add.stdout) as { id: string };
+
+    // Mark committed — writes committedEventId into .tasks.jsonl (not yet git-committed)
+    runCli(['update', task.id, '--stage', 'committed'], repoDir);
+
+    // Now commit .tasks.jsonl (the closing commit that includes the event ID)
+    spawnSync('git', ['add', '.tasks.jsonl'], { cwd: repoDir, encoding: 'utf-8', env: GIT_ENV });
+    spawnSync('git', ['commit', '-m', 'commit tasks', '--no-gpg-sign'], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+      env: GIT_ENV,
+    });
+
+    // Set up a bare remote and push so upstream tracking is configured
+    const remoteDir = join(tmpDir, 'remote.git');
+    spawnSync('git', ['init', '--bare', remoteDir], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+      env: GIT_ENV,
+    });
+    spawnSync('git', ['remote', 'add', 'origin', remoteDir], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+      env: GIT_ENV,
+    });
+    const branch = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+      env: GIT_ENV,
+    }).stdout.trim();
+    spawnSync('git', ['push', '-u', 'origin', branch], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+      env: GIT_ENV,
+    });
+
+    // After push, the task should be derived as 'pushed'
+    const list = runCli(['list', '--stage', 'pushed', '--json'], repoDir);
+    expect(list.code).toBe(0);
+    const tasks = JSON.parse(list.stdout) as Array<{ id: string; effectiveStage: string }>;
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].id).toBe(task.id);
+    expect(tasks[0].effectiveStage).toBe('pushed');
+  });
+
+  it('pushed is NOT derived when update --stage committed is called but .tasks.jsonl not yet committed', () => {
+    const add = runCli(['add', 'Uncommitted event', '--json'], repoDir);
+    const task = JSON.parse(add.stdout) as { id: string };
+
+    // Mark committed — writes committedEventId but do NOT git-commit the file
+    runCli(['update', task.id, '--stage', 'committed'], repoDir);
+
+    // Set up a remote and push WITHOUT committing .tasks.jsonl
+    const remoteDir = join(tmpDir, 'remote2.git');
+    spawnSync('git', ['init', '--bare', remoteDir], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+      env: GIT_ENV,
+    });
+    spawnSync('git', ['remote', 'add', 'origin2', remoteDir], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+      env: GIT_ENV,
+    });
+    const branch = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+      env: GIT_ENV,
+    }).stdout.trim();
+    // Push the existing HEAD (without .tasks.jsonl changes) as the upstream
+    spawnSync('git', ['push', '-u', 'origin2', `HEAD:${branch}`], {
+      cwd: repoDir,
+      encoding: 'utf-8',
+      env: GIT_ENV,
+    });
+
+    // The committedEventId is not in git history yet → should NOT be pushed
+    const list = runCli(['list', '--stage', 'pushed', '--json'], repoDir);
+    expect(list.code).toBe(0);
+    const tasks = JSON.parse(list.stdout) as unknown[];
+    expect(tasks).toHaveLength(0);
+  });
+
+  it('list --json includes effectiveStage for each task', () => {
+    const add = runCli(['add', 'Effective task', '--json'], repoDir);
+    const task = JSON.parse(add.stdout) as { id: string };
+    runCli(['update', task.id, '--stage', 'committed', '--json'], repoDir);
+
+    const list = runCli(['list', '--json'], repoDir);
+    expect(list.code).toBe(0);
+    const tasks = JSON.parse(list.stdout) as Array<{
+      id: string;
+      stage: string;
+      effectiveStage: string;
+    }>;
+    const found = tasks.find((t) => t.id === task.id);
+    expect(found?.stage).toBe('committed');
+    // No upstream in test repo, so effective stage stays 'committed'
+    expect(found?.effectiveStage).toBe('committed');
+  });
+
+  it('list --stage pushed returns empty when no upstream configured', () => {
+    const add = runCli(['add', 'Committed task', '--json'], repoDir);
+    const task = JSON.parse(add.stdout) as { id: string };
+    runCli(['update', task.id, '--stage', 'committed'], repoDir);
+
+    const list = runCli(['list', '--stage', 'pushed', '--json'], repoDir);
+    expect(list.code).toBe(0);
+    const tasks = JSON.parse(list.stdout) as unknown[];
+    // No upstream → no tasks qualify as pushed
+    expect(tasks).toHaveLength(0);
+  });
+
+  it('check --json includes effectiveStage for active tasks', () => {
+    const add = runCli(['add', 'Check task', '--json'], repoDir);
+    const task = JSON.parse(add.stdout) as { id: string };
+    runCli(['update', task.id, '--stage', 'committed'], repoDir);
+
+    const check = runCli(['check', '--json'], repoDir);
+    expect(check.code).toBe(0);
+    const parsed = JSON.parse(check.stdout) as {
+      activeTasks: Array<{ id: string; effectiveStage: string }>;
+      repoStatus: unknown;
+    };
+    const found = parsed.activeTasks.find((t) => t.id === task.id);
+    expect(found?.effectiveStage).toBe('committed');
+  });
 });

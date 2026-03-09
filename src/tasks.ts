@@ -45,6 +45,13 @@ export function updateTask(
   const task = tasks[idx];
   if (updates.stage !== undefined) task.stage = updates.stage;
   if (updates.description !== undefined) task.description = updates.description;
+  // When transitioning to 'committed', generate a durable unique event ID that
+  // will be written into .tasks.jsonl. Later, git history is searched for the
+  // commit that introduced this ID — avoiding the race where the user calls
+  // `update --stage committed` before making the actual closing commit.
+  if (updates.stage === 'committed' && !task.committedEventId) {
+    task.committedEventId = nanoid(16);
+  }
   task.updatedAt = new Date().toISOString();
   writeTasks(storagePath, tasks);
   return task;
