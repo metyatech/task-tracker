@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-03-10
+
+### Security
+
+- Upgrade minimatch to 10.2.4 (fixes GHSA-7r86-cg39-jmmj and GHSA-23c5-xmqv-rm74 ReDoS vulnerabilities)
+
+### Fixed
+
+- Improve test reliability by making verify behavior deterministic
+
 ## [0.2.3] - 2026-02-23
 
 ### Fixed

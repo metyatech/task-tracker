@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, rmSync, writeFileSync, mkdtempSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { spawnSync } from 'child_process';
@@ -50,7 +50,7 @@ describe('CLI integration', () => {
   let repoDir: string;
 
   beforeEach(() => {
-    tmpDir = join(tmpdir(), `task-tracker-cli-test-${Date.now()}`);
+    tmpDir = mkdtempSync(join(tmpdir(), 'task-tracker-cli-test-'));
     repoDir = join(tmpDir, 'repo');
     initGitRepo(repoDir);
   });

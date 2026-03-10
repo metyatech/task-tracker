@@ -1,6 +1,6 @@
 {
   "name": "@metyatech/task-tracker",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Persistent task lifecycle tracker for AI agent sessions",
   "type": "module",
   "bin": {
@@ -53,7 +53,7 @@
     "vitest": "^4.0.0"
   },
   "overrides": {
-    "minimatch": "^10.2.2"
+    "minimatch": "10.2.4"
   },
   "lint-staged": {
     "src/**/*.ts": [
