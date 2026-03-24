@@ -114,6 +114,23 @@ npm run format:check # Prettier (check)
 npm run verify       # format:check + lint + build + test
 ```
 
+## Release and Publish
+
+Publishing uses npm trusted publishing from GitHub Actions. The publish workflow is
+[`publish.yml`](.github/workflows/publish.yml) and does not require an npm write token in GitHub.
+
+Typical release flow:
+
+1. Update `CHANGELOG.md` and bump `package.json` / `package-lock.json`
+2. Run `npm run verify`
+3. Commit and push to `main`
+4. Create and push a `v<version>` tag
+5. GitHub Actions publishes the package from the tag via npm trusted publishing
+
+If a release tag already exists before trusted publishing is configured, run the
+`Publish Package` workflow manually and set `publish_ref` to the tag name
+(for example, `v0.2.5`).
+
 ## Community
 
 - [Security Policy](SECURITY.md)

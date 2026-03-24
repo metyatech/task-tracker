@@ -1,0 +1,69 @@
+name: Publish Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      publish_ref:
+        description: 'Git ref to publish (tag or branch). Leave empty to use the triggering ref.'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve publish ref
+        id: publish-ref
+        run: |
+          if [ '${{ github.event_name }}' = 'workflow_dispatch' ] && [ -n '${{ inputs.publish_ref }}' ]; then
+            echo 'value=${{ inputs.publish_ref }}' >> "$GITHUB_OUTPUT"
+          else
+            echo 'value=${{ github.ref }}' >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.publish-ref.outputs.value }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Validate tagged version
+        run: |
+          ref='${{ steps.publish-ref.outputs.value }}'
+          case "$ref" in
+            refs/tags/v*) expected_version="${ref#refs/tags/v}" ;;
+            v*) expected_version="${ref#v}" ;;
+            *) expected_version='' ;;
+          esac
+
+          if [ -z "$expected_version" ]; then
+            echo "Skipping tag/version check for ref: $ref"
+            exit 0
+          fi
+
+          actual_version=$(node -p "require('./package.json').version")
+          if [ "$actual_version" != "$expected_version" ]; then
+            echo "package.json version ($actual_version) does not match tag ($expected_version)" >&2
+            exit 1
+          fi
+
+      - run: node --version
+
+      - run: npm --version
+
+      - run: npm ci
+
+      - run: npm run verify
+
+      - run: npm publish

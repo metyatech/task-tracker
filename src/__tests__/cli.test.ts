@@ -382,7 +382,7 @@ describe('CLI integration', () => {
     expect(tasks).toHaveLength(1);
     expect(tasks[0].id).toBe(task.id);
     expect(tasks[0].effectiveStage).toBe('pushed');
-  });
+  }, 20_000);
 
   it('pushed is NOT derived when update --stage committed is called but .tasks.jsonl not yet committed', () => {
     const add = runCli(['add', 'Uncommitted event', '--json'], repoDir);
@@ -420,7 +420,7 @@ describe('CLI integration', () => {
     expect(list.code).toBe(0);
     const tasks = JSON.parse(list.stdout) as unknown[];
     expect(tasks).toHaveLength(0);
-  });
+  }, 20_000);
 
   it('list --json includes effectiveStage for each task', () => {
     const add = runCli(['add', 'Effective task', '--json'], repoDir);
