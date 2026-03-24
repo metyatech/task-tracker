@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Add a GitHub Actions npm trusted-publishing workflow (`publish.yml`) and document the release flow
+- Publish from GitHub Release publication events instead of tag pushes, and document the updated release flow
 
 ## [0.2.5] - 2026-03-24
 

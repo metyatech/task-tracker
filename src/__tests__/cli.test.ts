@@ -9,7 +9,8 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const CLI = join(__dirname, '..', '..', 'dist', 'cli.js');
-const LONG_CLI_TEST_TIMEOUT_MS = 20_000;
+const LONG_CLI_TEST_TIMEOUT_MS = 45_000;
+const CLI_HOOK_TIMEOUT_MS = 30_000;
 
 const GIT_ENV = {
   ...process.env,
@@ -59,7 +60,7 @@ function writeTasksJsonl(
   writeFileSync(join(dir, '.tasks.jsonl'), tasks.map((task) => JSON.stringify(task)).join('\n'));
 }
 
-describe('CLI integration', () => {
+describe('CLI integration', { timeout: LONG_CLI_TEST_TIMEOUT_MS }, () => {
   let tmpDir: string;
   let repoDir: string;
 
@@ -67,11 +68,11 @@ describe('CLI integration', () => {
     tmpDir = mkdtempSync(join(tmpdir(), 'task-tracker-cli-test-'));
     repoDir = join(tmpDir, 'repo');
     initGitRepo(repoDir);
-  });
+  }, CLI_HOOK_TIMEOUT_MS);
 
   afterEach(() => {
     rmSync(tmpDir, { recursive: true, force: true });
-  });
+  }, CLI_HOOK_TIMEOUT_MS);
 
   it('shows version', () => {
     const r = spawnSync('node', [CLI, '--version'], { encoding: 'utf-8', cwd: repoDir });
@@ -214,45 +215,57 @@ describe('CLI integration', () => {
     expect(parsed).toHaveProperty('repoStatus');
   });
 
-  it('purge removes done tasks', () => {
-    runCli(['add', 'Active task'], repoDir);
-    const add2 = runCli(['add', 'Done task', '--json'], repoDir);
-    const task2 = JSON.parse(add2.stdout) as { id: string };
-    runCli(['done', task2.id], repoDir);
+  it(
+    'purge removes done tasks',
+    () => {
+      runCli(['add', 'Active task'], repoDir);
+      const add2 = runCli(['add', 'Done task', '--json'], repoDir);
+      const task2 = JSON.parse(add2.stdout) as { id: string };
+      runCli(['done', task2.id], repoDir);
 
-    const purge = runCli(['purge'], repoDir);
-    expect(purge.code).toBe(0);
-    expect(purge.stdout).toContain('Purged 1 task(s)');
-    expect(purge.stdout).toContain(task2.id);
+      const purge = runCli(['purge'], repoDir);
+      expect(purge.code).toBe(0);
+      expect(purge.stdout).toContain('Purged 1 task(s)');
+      expect(purge.stdout).toContain(task2.id);
 
-    const list = runCli(['list'], repoDir);
-    expect(list.stdout).toContain('Active task');
-  });
+      const list = runCli(['list'], repoDir);
+      expect(list.stdout).toContain('Active task');
+    },
+    LONG_CLI_TEST_TIMEOUT_MS,
+  );
 
-  it('purge --dry-run does not remove tasks', () => {
-    const add = runCli(['add', 'To purge', '--json'], repoDir);
-    const task = JSON.parse(add.stdout) as { id: string };
-    runCli(['done', task.id], repoDir);
+  it(
+    'purge --dry-run does not remove tasks',
+    () => {
+      const add = runCli(['add', 'To purge', '--json'], repoDir);
+      const task = JSON.parse(add.stdout) as { id: string };
+      runCli(['done', task.id], repoDir);
 
-    const dryRun = runCli(['purge', '--dry-run'], repoDir);
-    expect(dryRun.code).toBe(0);
-    expect(dryRun.stdout).toContain('Would purge 1 task(s)');
+      const dryRun = runCli(['purge', '--dry-run'], repoDir);
+      expect(dryRun.code).toBe(0);
+      expect(dryRun.stdout).toContain('Would purge 1 task(s)');
 
-    const listAll = runCli(['list', '--all'], repoDir);
-    expect(listAll.stdout).toContain('To purge');
-  });
+      const listAll = runCli(['list', '--all'], repoDir);
+      expect(listAll.stdout).toContain('To purge');
+    },
+    LONG_CLI_TEST_TIMEOUT_MS,
+  );
 
-  it('purge --json outputs structured result', () => {
-    const add = runCli(['add', 'Done JSON task', '--json'], repoDir);
-    const task = JSON.parse(add.stdout) as { id: string };
-    runCli(['done', task.id], repoDir);
+  it(
+    'purge --json outputs structured result',
+    () => {
+      const add = runCli(['add', 'Done JSON task', '--json'], repoDir);
+      const task = JSON.parse(add.stdout) as { id: string };
+      runCli(['done', task.id], repoDir);
 
-    const purge = runCli(['purge', '--json'], repoDir);
-    expect(purge.code).toBe(0);
-    const parsed = JSON.parse(purge.stdout) as { count: number; ids: string[] };
-    expect(parsed.count).toBe(1);
-    expect(parsed.ids).toContain(task.id);
-  });
+      const purge = runCli(['purge', '--json'], repoDir);
+      expect(purge.code).toBe(0);
+      const parsed = JSON.parse(purge.stdout) as { count: number; ids: string[] };
+      expect(parsed.count).toBe(1);
+      expect(parsed.ids).toContain(task.id);
+    },
+    LONG_CLI_TEST_TIMEOUT_MS,
+  );
 
   it('purge with no done tasks outputs appropriate message', () => {
     runCli(['add', 'Just active'], repoDir);

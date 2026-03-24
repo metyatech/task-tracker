@@ -3,3 +3,4 @@
 {"id":"fxJJNKqt","description":"Fix failure updating task -C72J5Lc","stage":"done","createdAt":"2026-03-24T07:29:19.042Z","updatedAt":"2026-03-24T08:48:46.859Z","committedEventId":"aZFQxqsA2kQD0NBV"}
 {"id":"htm6_Uqg","description":"Release/publish task-tracker 0.2.5 with hyphenated ID fix","stage":"done","createdAt":"2026-03-24T07:48:31.915Z","updatedAt":"2026-03-24T08:48:50.803Z","committedEventId":"GaDTi8Q6sF_H0lAK"}
 {"id":"_p7HTJ1Y","description":"Set up npm trusted publishing for task-tracker","stage":"done","createdAt":"2026-03-24T08:29:46.522Z","updatedAt":"2026-03-24T08:48:47.912Z","committedEventId":"p64nHxLtDXzWNR7V"}
+{"id":"4fSNjCfH","description":"Switch npm publish automation to GitHub Release event","stage":"committed","createdAt":"2026-03-24T09:22:48.728Z","updatedAt":"2026-03-24T10:12:01.666Z","committedEventId":"Q8Ht1wOxtCEjan2Q"}

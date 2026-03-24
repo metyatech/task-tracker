@@ -125,11 +125,12 @@ Typical release flow:
 2. Run `npm run verify`
 3. Commit and push to `main`
 4. Create and push a `v<version>` tag
-5. GitHub Actions publishes the package from the tag via npm trusted publishing
+5. Publish a GitHub Release for that tag
+6. GitHub Actions publishes the package from the release via npm trusted publishing
 
-If a release tag already exists before trusted publishing is configured, run the
-`Publish Package` workflow manually and set `publish_ref` to the tag name
-(for example, `v0.2.5`).
+The workflow still supports manual backfills through `workflow_dispatch`. If a release tag
+already exists, run the `Publish Package` workflow manually and set `publish_ref` to the
+tag name (for example, `v0.2.5`).
 
 ## Community
 

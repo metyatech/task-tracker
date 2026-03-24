@@ -1,9 +1,9 @@
 name: Publish Package
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types:
+      - published
   workflow_dispatch:
     inputs:
       publish_ref:
@@ -24,6 +24,8 @@ jobs:
         run: |
           if [ '${{ github.event_name }}' = 'workflow_dispatch' ] && [ -n '${{ inputs.publish_ref }}' ]; then
             echo 'value=${{ inputs.publish_ref }}' >> "$GITHUB_OUTPUT"
+          elif [ '${{ github.event_name }}' = 'release' ]; then
+            echo 'value=refs/tags/${{ github.event.release.tag_name }}' >> "$GITHUB_OUTPUT"
           else
             echo 'value=${{ github.ref }}' >> "$GITHUB_OUTPUT"
           fi
@@ -66,4 +68,4 @@ jobs:
 
       - run: npm run verify
 
-      - run: npm publish
+      - run: npm publish --provenance
