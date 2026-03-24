@@ -20,6 +20,19 @@ import process from 'process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const HYPHENATED_TASK_ID_PATTERN = /^-[A-Za-z0-9_-]{7}$/;
+
+const TASK_ID_COMMAND_OPTIONS: Record<string, Record<string, boolean>> = {
+  update: {
+    '--stage': true,
+    '--description': true,
+    '--json': false,
+  },
+  done: {
+    '--keep': true,
+  },
+  remove: {},
+};
 
 let version = '0.0.0';
 try {
@@ -54,6 +67,44 @@ function getStorage(): string {
     console.error(e instanceof Error ? e.message : 'Not in a git repository');
     process.exit(1);
   }
+}
+
+function normalizeHyphenatedTaskIdArg(argv: string[]): string[] {
+  const commandName = argv[2];
+  const optionSpec = TASK_ID_COMMAND_OPTIONS[commandName];
+
+  if (!optionSpec) {
+    return argv;
+  }
+
+  const args = argv.slice(3);
+  if (args.includes('--')) {
+    return argv;
+  }
+
+  for (let i = 0; i < args.length; i += 1) {
+    const token = args[i];
+    const consumesValue = optionSpec[token];
+
+    if (consumesValue !== undefined) {
+      if (consumesValue) {
+        i += 1;
+      }
+      continue;
+    }
+
+    if (!token.startsWith('-')) {
+      return argv;
+    }
+
+    if (!HYPHENATED_TASK_ID_PATTERN.test(token)) {
+      return argv;
+    }
+
+    return [...argv.slice(0, 3), ...args.slice(0, i), ...args.slice(i + 1), '--', token];
+  }
+
+  return argv;
 }
 
 const program = new Command();
@@ -275,4 +326,4 @@ program
     startGui(targetDir, port);
   });
 
-program.parse(process.argv);
+program.parse(normalizeHyphenatedTaskIdArg(process.argv));

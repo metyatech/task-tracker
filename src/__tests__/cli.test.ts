@@ -45,6 +45,19 @@ function runCli(args: string[], cwd: string): { stdout: string; stderr: string; 
   };
 }
 
+function writeTasksJsonl(
+  dir: string,
+  tasks: Array<{
+    id: string;
+    description: string;
+    stage: string;
+    createdAt: string;
+    updatedAt: string;
+  }>,
+): void {
+  writeFileSync(join(dir, '.tasks.jsonl'), tasks.map((task) => JSON.stringify(task)).join('\n'));
+}
+
 describe('CLI integration', () => {
   let tmpDir: string;
   let repoDir: string;
@@ -100,6 +113,24 @@ describe('CLI integration', () => {
     expect(updated.stage).toBe('in-progress');
   });
 
+  it('update supports task ids starting with a hyphen', () => {
+    writeTasksJsonl(repoDir, [
+      {
+        id: '-C72J5Lc',
+        description: 'Hyphen task',
+        stage: 'pending',
+        createdAt: '2026-03-24T00:00:00.000Z',
+        updatedAt: '2026-03-24T00:00:00.000Z',
+      },
+    ]);
+
+    const update = runCli(['update', '-C72J5Lc', '--stage', 'in-progress', '--json'], repoDir);
+    expect(update.code).toBe(0);
+    const updated = JSON.parse(update.stdout) as { id: string; stage: string };
+    expect(updated.id).toBe('-C72J5Lc');
+    expect(updated.stage).toBe('in-progress');
+  });
+
   it('done command marks task as done', () => {
     const add = runCli(['add', 'Finish me', '--json'], repoDir);
     const task = JSON.parse(add.stdout) as { id: string };
@@ -114,6 +145,25 @@ describe('CLI integration', () => {
     expect(listAll.stdout).toContain('Finish me');
   });
 
+  it('done supports task ids starting with a hyphen', () => {
+    writeTasksJsonl(repoDir, [
+      {
+        id: '-C72J5Lc',
+        description: 'Finish hyphen task',
+        stage: 'pending',
+        createdAt: '2026-03-24T00:00:00.000Z',
+        updatedAt: '2026-03-24T00:00:00.000Z',
+      },
+    ]);
+
+    const done = runCli(['done', '-C72J5Lc'], repoDir);
+    expect(done.code).toBe(0);
+
+    const listAll = runCli(['list', '--all', '--json'], repoDir);
+    const tasks = JSON.parse(listAll.stdout) as Array<{ id: string; stage: string }>;
+    expect(tasks).toContainEqual(expect.objectContaining({ id: '-C72J5Lc', stage: 'done' }));
+  });
+
   it('remove task', () => {
     const add = runCli(['add', 'Remove me', '--json'], repoDir);
     const task = JSON.parse(add.stdout) as { id: string };
@@ -123,6 +173,25 @@ describe('CLI integration', () => {
 
     const list = runCli(['list', '--all'], repoDir);
     expect(list.stdout).not.toContain('Remove me');
+  });
+
+  it('remove supports task ids starting with a hyphen', () => {
+    writeTasksJsonl(repoDir, [
+      {
+        id: '-C72J5Lc',
+        description: 'Remove hyphen task',
+        stage: 'pending',
+        createdAt: '2026-03-24T00:00:00.000Z',
+        updatedAt: '2026-03-24T00:00:00.000Z',
+      },
+    ]);
+
+    const remove = runCli(['remove', '-C72J5Lc'], repoDir);
+    expect(remove.code).toBe(0);
+
+    const listAll = runCli(['list', '--all', '--json'], repoDir);
+    const tasks = JSON.parse(listAll.stdout) as Array<{ id: string }>;
+    expect(tasks).not.toContainEqual(expect.objectContaining({ id: '-C72J5Lc' }));
   });
 
   it('check command shows repo status', () => {

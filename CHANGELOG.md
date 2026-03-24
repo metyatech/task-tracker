@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-03-24
+
+### Security
+
+- Refresh `flatted` to 3.4.2 via `npm audit fix` to clear npm audit high-severity advisories
+
+### Fixed
+
+- Accept task IDs that start with `-` in `update`, `done`, and `remove`
+
 ## [0.2.4] - 2026-03-10
 
 ### Security

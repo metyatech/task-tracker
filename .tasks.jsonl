@@ -1,2 +1,4 @@
 {"id":"00F9KOkd","description":"Bring repo into compliance with AGENTS.md","stage":"done","createdAt":"2026-02-23T02:24:50.961Z","updatedAt":"2026-02-23T02:29:29.093Z"}
-{"id":"YTZOF2Ai","description":"Release/publish task-tracker 0.2.4 with vulnerability fix","stage":"committed","createdAt":"2026-03-10T01:32:41.999Z","updatedAt":"2026-03-10T01:48:10.910Z"}
+{"id":"YTZOF2Ai","description":"Release/publish task-tracker 0.2.4 with vulnerability fix","stage":"done","createdAt":"2026-03-10T01:32:41.999Z","updatedAt":"2026-03-24T07:48:31.899Z"}
+{"id":"fxJJNKqt","description":"Fix failure updating task -C72J5Lc","stage":"committed","createdAt":"2026-03-24T07:29:19.042Z","updatedAt":"2026-03-24T07:51:38.287Z","committedEventId":"aZFQxqsA2kQD0NBV"}
+{"id":"htm6_Uqg","description":"Release/publish task-tracker 0.2.5 with hyphenated ID fix","stage":"committed","createdAt":"2026-03-24T07:48:31.915Z","updatedAt":"2026-03-24T07:51:38.162Z","committedEventId":"GaDTi8Q6sF_H0lAK"}
