@@ -9,6 +9,7 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const CLI = join(__dirname, '..', '..', 'dist', 'cli.js');
+const LONG_CLI_TEST_TIMEOUT_MS = 20_000;
 
 const GIT_ENV = {
   ...process.env,
@@ -261,53 +262,65 @@ describe('CLI integration', () => {
     expect(purge.stdout).toContain('No done tasks to purge');
   });
 
-  it('done --keep N auto-purges keeping only N most recent done tasks', () => {
-    // Add 3 tasks directly as done (no auto-purge side effects)
-    runCli(['add', 'Old task 1', '--stage', 'done'], repoDir);
-    runCli(['add', 'Old task 2', '--stage', 'done'], repoDir);
-    runCli(['add', 'Old task 3', '--stage', 'done'], repoDir);
-    // Mark one more done with explicit --keep 2 → triggers auto-purge keeping 2
-    const add = runCli(['add', 'Final task', '--json'], repoDir);
-    const finalTask = JSON.parse(add.stdout) as { id: string };
-    const done = runCli(['done', finalTask.id, '--keep', '2'], repoDir);
-    expect(done.code).toBe(0);
+  it(
+    'done --keep N auto-purges keeping only N most recent done tasks',
+    () => {
+      // Add 3 tasks directly as done (no auto-purge side effects)
+      runCli(['add', 'Old task 1', '--stage', 'done'], repoDir);
+      runCli(['add', 'Old task 2', '--stage', 'done'], repoDir);
+      runCli(['add', 'Old task 3', '--stage', 'done'], repoDir);
+      // Mark one more done with explicit --keep 2 → triggers auto-purge keeping 2
+      const add = runCli(['add', 'Final task', '--json'], repoDir);
+      const finalTask = JSON.parse(add.stdout) as { id: string };
+      const done = runCli(['done', finalTask.id, '--keep', '2'], repoDir);
+      expect(done.code).toBe(0);
 
-    const all = runCli(['list', '--all', '--json'], repoDir);
-    const parsed = JSON.parse(all.stdout) as unknown[];
-    expect(parsed).toHaveLength(2);
-  });
+      const all = runCli(['list', '--all', '--json'], repoDir);
+      const parsed = JSON.parse(all.stdout) as unknown[];
+      expect(parsed).toHaveLength(2);
+    },
+    LONG_CLI_TEST_TIMEOUT_MS,
+  );
 
-  it('done --keep 0 disables auto-purge', () => {
-    // Add 3 tasks directly as done
-    runCli(['add', 'Old task 1', '--stage', 'done'], repoDir);
-    runCli(['add', 'Old task 2', '--stage', 'done'], repoDir);
-    runCli(['add', 'Old task 3', '--stage', 'done'], repoDir);
-    // Mark one more done with --keep 0 → auto-purge disabled
-    const add = runCli(['add', 'Task 4', '--json'], repoDir);
-    const t = JSON.parse(add.stdout) as { id: string };
-    const done = runCli(['done', t.id, '--keep', '0'], repoDir);
-    expect(done.code).toBe(0);
+  it(
+    'done --keep 0 disables auto-purge',
+    () => {
+      // Add 3 tasks directly as done
+      runCli(['add', 'Old task 1', '--stage', 'done'], repoDir);
+      runCli(['add', 'Old task 2', '--stage', 'done'], repoDir);
+      runCli(['add', 'Old task 3', '--stage', 'done'], repoDir);
+      // Mark one more done with --keep 0 → auto-purge disabled
+      const add = runCli(['add', 'Task 4', '--json'], repoDir);
+      const t = JSON.parse(add.stdout) as { id: string };
+      const done = runCli(['done', t.id, '--keep', '0'], repoDir);
+      expect(done.code).toBe(0);
 
-    const all = runCli(['list', '--all', '--json'], repoDir);
-    const parsed = JSON.parse(all.stdout) as unknown[];
-    expect(parsed).toHaveLength(4);
-  });
+      const all = runCli(['list', '--all', '--json'], repoDir);
+      const parsed = JSON.parse(all.stdout) as unknown[];
+      expect(parsed).toHaveLength(4);
+    },
+    LONG_CLI_TEST_TIMEOUT_MS,
+  );
 
-  it('purge --keep N keeps N most recent done tasks', () => {
-    // Add 4 tasks directly as done
-    runCli(['add', 'Old task 1', '--stage', 'done'], repoDir);
-    runCli(['add', 'Old task 2', '--stage', 'done'], repoDir);
-    runCli(['add', 'Old task 3', '--stage', 'done'], repoDir);
-    runCli(['add', 'Old task 4', '--stage', 'done'], repoDir);
+  it(
+    'purge --keep N keeps N most recent done tasks',
+    () => {
+      // Add 4 tasks directly as done
+      runCli(['add', 'Old task 1', '--stage', 'done'], repoDir);
+      runCli(['add', 'Old task 2', '--stage', 'done'], repoDir);
+      runCli(['add', 'Old task 3', '--stage', 'done'], repoDir);
+      runCli(['add', 'Old task 4', '--stage', 'done'], repoDir);
 
-    const purge = runCli(['purge', '--keep', '2'], repoDir);
-    expect(purge.code).toBe(0);
-    expect(purge.stdout).toContain('Purged 2 task(s)');
+      const purge = runCli(['purge', '--keep', '2'], repoDir);
+      expect(purge.code).toBe(0);
+      expect(purge.stdout).toContain('Purged 2 task(s)');
 
-    const all = runCli(['list', '--all', '--json'], repoDir);
-    const parsed = JSON.parse(all.stdout) as unknown[];
-    expect(parsed).toHaveLength(2);
-  });
+      const all = runCli(['list', '--all', '--json'], repoDir);
+      const parsed = JSON.parse(all.stdout) as unknown[];
+      expect(parsed).toHaveLength(2);
+    },
+    LONG_CLI_TEST_TIMEOUT_MS,
+  );
 
   it('update --stage pushed fails with derived stage error', () => {
     const add = runCli(['add', 'Push me', '--json'], repoDir);
@@ -337,90 +350,98 @@ describe('CLI integration', () => {
     expect(updated.committedEventId).toMatch(/^[A-Za-z0-9_-]{16}$/);
   });
 
-  it('pushed is derived from the git commit that introduced committedEventId into .tasks.jsonl', () => {
-    const add = runCli(['add', 'Push via history', '--json'], repoDir);
-    const task = JSON.parse(add.stdout) as { id: string };
+  it(
+    'pushed is derived from the git commit that introduced committedEventId into .tasks.jsonl',
+    () => {
+      const add = runCli(['add', 'Push via history', '--json'], repoDir);
+      const task = JSON.parse(add.stdout) as { id: string };
 
-    // Mark committed — writes committedEventId into .tasks.jsonl (not yet git-committed)
-    runCli(['update', task.id, '--stage', 'committed'], repoDir);
+      // Mark committed — writes committedEventId into .tasks.jsonl (not yet git-committed)
+      runCli(['update', task.id, '--stage', 'committed'], repoDir);
 
-    // Now commit .tasks.jsonl (the closing commit that includes the event ID)
-    spawnSync('git', ['add', '.tasks.jsonl'], { cwd: repoDir, encoding: 'utf-8', env: GIT_ENV });
-    spawnSync('git', ['commit', '-m', 'commit tasks', '--no-gpg-sign'], {
-      cwd: repoDir,
-      encoding: 'utf-8',
-      env: GIT_ENV,
-    });
+      // Now commit .tasks.jsonl (the closing commit that includes the event ID)
+      spawnSync('git', ['add', '.tasks.jsonl'], { cwd: repoDir, encoding: 'utf-8', env: GIT_ENV });
+      spawnSync('git', ['commit', '-m', 'commit tasks', '--no-gpg-sign'], {
+        cwd: repoDir,
+        encoding: 'utf-8',
+        env: GIT_ENV,
+      });
 
-    // Set up a bare remote and push so upstream tracking is configured
-    const remoteDir = join(tmpDir, 'remote.git');
-    spawnSync('git', ['init', '--bare', remoteDir], {
-      cwd: repoDir,
-      encoding: 'utf-8',
-      env: GIT_ENV,
-    });
-    spawnSync('git', ['remote', 'add', 'origin', remoteDir], {
-      cwd: repoDir,
-      encoding: 'utf-8',
-      env: GIT_ENV,
-    });
-    const branch = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-      cwd: repoDir,
-      encoding: 'utf-8',
-      env: GIT_ENV,
-    }).stdout.trim();
-    spawnSync('git', ['push', '-u', 'origin', branch], {
-      cwd: repoDir,
-      encoding: 'utf-8',
-      env: GIT_ENV,
-    });
+      // Set up a bare remote and push so upstream tracking is configured
+      const remoteDir = join(tmpDir, 'remote.git');
+      spawnSync('git', ['init', '--bare', remoteDir], {
+        cwd: repoDir,
+        encoding: 'utf-8',
+        env: GIT_ENV,
+      });
+      spawnSync('git', ['remote', 'add', 'origin', remoteDir], {
+        cwd: repoDir,
+        encoding: 'utf-8',
+        env: GIT_ENV,
+      });
+      const branch = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+        cwd: repoDir,
+        encoding: 'utf-8',
+        env: GIT_ENV,
+      }).stdout.trim();
+      spawnSync('git', ['push', '-u', 'origin', branch], {
+        cwd: repoDir,
+        encoding: 'utf-8',
+        env: GIT_ENV,
+      });
 
-    // After push, the task should be derived as 'pushed'
-    const list = runCli(['list', '--stage', 'pushed', '--json'], repoDir);
-    expect(list.code).toBe(0);
-    const tasks = JSON.parse(list.stdout) as Array<{ id: string; effectiveStage: string }>;
-    expect(tasks).toHaveLength(1);
-    expect(tasks[0].id).toBe(task.id);
-    expect(tasks[0].effectiveStage).toBe('pushed');
-  }, 20_000);
+      // After push, the task should be derived as 'pushed'
+      const list = runCli(['list', '--stage', 'pushed', '--json'], repoDir);
+      expect(list.code).toBe(0);
+      const tasks = JSON.parse(list.stdout) as Array<{ id: string; effectiveStage: string }>;
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].id).toBe(task.id);
+      expect(tasks[0].effectiveStage).toBe('pushed');
+    },
+    LONG_CLI_TEST_TIMEOUT_MS,
+  );
 
-  it('pushed is NOT derived when update --stage committed is called but .tasks.jsonl not yet committed', () => {
-    const add = runCli(['add', 'Uncommitted event', '--json'], repoDir);
-    const task = JSON.parse(add.stdout) as { id: string };
+  it(
+    'pushed is NOT derived when update --stage committed is called but .tasks.jsonl not yet committed',
+    () => {
+      const add = runCli(['add', 'Uncommitted event', '--json'], repoDir);
+      const task = JSON.parse(add.stdout) as { id: string };
 
-    // Mark committed — writes committedEventId but do NOT git-commit the file
-    runCli(['update', task.id, '--stage', 'committed'], repoDir);
+      // Mark committed — writes committedEventId but do NOT git-commit the file
+      runCli(['update', task.id, '--stage', 'committed'], repoDir);
 
-    // Set up a remote and push WITHOUT committing .tasks.jsonl
-    const remoteDir = join(tmpDir, 'remote2.git');
-    spawnSync('git', ['init', '--bare', remoteDir], {
-      cwd: repoDir,
-      encoding: 'utf-8',
-      env: GIT_ENV,
-    });
-    spawnSync('git', ['remote', 'add', 'origin2', remoteDir], {
-      cwd: repoDir,
-      encoding: 'utf-8',
-      env: GIT_ENV,
-    });
-    const branch = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-      cwd: repoDir,
-      encoding: 'utf-8',
-      env: GIT_ENV,
-    }).stdout.trim();
-    // Push the existing HEAD (without .tasks.jsonl changes) as the upstream
-    spawnSync('git', ['push', '-u', 'origin2', `HEAD:${branch}`], {
-      cwd: repoDir,
-      encoding: 'utf-8',
-      env: GIT_ENV,
-    });
+      // Set up a remote and push WITHOUT committing .tasks.jsonl
+      const remoteDir = join(tmpDir, 'remote2.git');
+      spawnSync('git', ['init', '--bare', remoteDir], {
+        cwd: repoDir,
+        encoding: 'utf-8',
+        env: GIT_ENV,
+      });
+      spawnSync('git', ['remote', 'add', 'origin2', remoteDir], {
+        cwd: repoDir,
+        encoding: 'utf-8',
+        env: GIT_ENV,
+      });
+      const branch = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+        cwd: repoDir,
+        encoding: 'utf-8',
+        env: GIT_ENV,
+      }).stdout.trim();
+      // Push the existing HEAD (without .tasks.jsonl changes) as the upstream
+      spawnSync('git', ['push', '-u', 'origin2', `HEAD:${branch}`], {
+        cwd: repoDir,
+        encoding: 'utf-8',
+        env: GIT_ENV,
+      });
 
-    // The committedEventId is not in git history yet → should NOT be pushed
-    const list = runCli(['list', '--stage', 'pushed', '--json'], repoDir);
-    expect(list.code).toBe(0);
-    const tasks = JSON.parse(list.stdout) as unknown[];
-    expect(tasks).toHaveLength(0);
-  }, 20_000);
+      // The committedEventId is not in git history yet → should NOT be pushed
+      const list = runCli(['list', '--stage', 'pushed', '--json'], repoDir);
+      expect(list.code).toBe(0);
+      const tasks = JSON.parse(list.stdout) as unknown[];
+      expect(tasks).toHaveLength(0);
+    },
+    LONG_CLI_TEST_TIMEOUT_MS,
+  );
 
   it('list --json includes effectiveStage for each task', () => {
     const add = runCli(['add', 'Effective task', '--json'], repoDir);
