@@ -133,6 +133,24 @@ describe('CLI integration', { timeout: LONG_CLI_TEST_TIMEOUT_MS }, () => {
     expect(updated.stage).toBe('in-progress');
   });
 
+  it('update supports shorter task ids starting with a hyphen', () => {
+    writeTasksJsonl(repoDir, [
+      {
+        id: '-probe',
+        description: 'Short hyphen task',
+        stage: 'pending',
+        createdAt: '2026-03-24T00:00:00.000Z',
+        updatedAt: '2026-03-24T00:00:00.000Z',
+      },
+    ]);
+
+    const update = runCli(['update', '-probe', '--stage', 'in-progress', '--json'], repoDir);
+    expect(update.code).toBe(0);
+    const updated = JSON.parse(update.stdout) as { id: string; stage: string };
+    expect(updated.id).toBe('-probe');
+    expect(updated.stage).toBe('in-progress');
+  });
+
   it('done command marks task as done', () => {
     const add = runCli(['add', 'Finish me', '--json'], repoDir);
     const task = JSON.parse(add.stdout) as { id: string };
@@ -166,6 +184,25 @@ describe('CLI integration', { timeout: LONG_CLI_TEST_TIMEOUT_MS }, () => {
     expect(tasks).toContainEqual(expect.objectContaining({ id: '-C72J5Lc', stage: 'done' }));
   });
 
+  it('done supports shorter task ids starting with a hyphen', () => {
+    writeTasksJsonl(repoDir, [
+      {
+        id: '-probe',
+        description: 'Finish short hyphen task',
+        stage: 'pending',
+        createdAt: '2026-03-24T00:00:00.000Z',
+        updatedAt: '2026-03-24T00:00:00.000Z',
+      },
+    ]);
+
+    const done = runCli(['done', '-probe'], repoDir);
+    expect(done.code).toBe(0);
+
+    const listAll = runCli(['list', '--all', '--json'], repoDir);
+    const tasks = JSON.parse(listAll.stdout) as Array<{ id: string; stage: string }>;
+    expect(tasks).toContainEqual(expect.objectContaining({ id: '-probe', stage: 'done' }));
+  });
+
   it('remove task', () => {
     const add = runCli(['add', 'Remove me', '--json'], repoDir);
     const task = JSON.parse(add.stdout) as { id: string };
@@ -194,6 +231,25 @@ describe('CLI integration', { timeout: LONG_CLI_TEST_TIMEOUT_MS }, () => {
     const listAll = runCli(['list', '--all', '--json'], repoDir);
     const tasks = JSON.parse(listAll.stdout) as Array<{ id: string }>;
     expect(tasks).not.toContainEqual(expect.objectContaining({ id: '-C72J5Lc' }));
+  });
+
+  it('remove supports shorter task ids starting with a hyphen', () => {
+    writeTasksJsonl(repoDir, [
+      {
+        id: '-probe',
+        description: 'Remove short hyphen task',
+        stage: 'pending',
+        createdAt: '2026-03-24T00:00:00.000Z',
+        updatedAt: '2026-03-24T00:00:00.000Z',
+      },
+    ]);
+
+    const remove = runCli(['remove', '-probe'], repoDir);
+    expect(remove.code).toBe(0);
+
+    const listAll = runCli(['list', '--all', '--json'], repoDir);
+    const tasks = JSON.parse(listAll.stdout) as Array<{ id: string }>;
+    expect(tasks).not.toContainEqual(expect.objectContaining({ id: '-probe' }));
   });
 
   it('check command shows repo status', () => {

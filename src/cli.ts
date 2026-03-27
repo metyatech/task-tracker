@@ -20,8 +20,6 @@ import process from 'process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const HYPHENATED_TASK_ID_PATTERN = /^-[A-Za-z0-9_-]{7}$/;
-
 const TASK_ID_COMMAND_OPTIONS: Record<string, Record<string, boolean>> = {
   update: {
     '--stage': true,
@@ -97,7 +95,7 @@ function normalizeHyphenatedTaskIdArg(argv: string[]): string[] {
       return argv;
     }
 
-    if (!HYPHENATED_TASK_ID_PATTERN.test(token)) {
+    if (!/^-[^-].*/.test(token)) {
       return argv;
     }
 

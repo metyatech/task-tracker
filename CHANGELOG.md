@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-03-27
+
 ### Changed
 
 - Publish from GitHub Release publication events instead of tag pushes, and document the updated release flow
+
+### Fixed
+
+- Accept shorter task IDs that start with `-` in `update`, `done`, and `remove`, not only the generated 8-character form
 
 ## [0.2.5] - 2026-03-24
 
